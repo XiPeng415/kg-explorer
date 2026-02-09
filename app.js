@@ -4,6 +4,11 @@
 
 // ---- Global Data Setup ----
 const D = window.VIZ_DATA;
+if (!D || !D.network) {
+  throw new Error(
+    "VIZ_DATA is missing. Check that viz_data.js is present and loaded before app.js."
+  );
+}
 const nodes = D.network.nodes;
 const edges = D.network.edges;
 
