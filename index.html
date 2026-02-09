@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Singapore Urban Knowledge Graph Explorer</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="styles.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="../viz_data.js"></script>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Singapore Urban Knowledge Graph Explorer</h1>
+    <div class="subtitle">Regen Cities Project &mdash; 1,869 Parcels | 102,494 Edges | 8 Relationship Types | Community &amp; Energy Analysis</div>
+  </div>
+</div>
+
+<div class="nav-tabs" id="navTabs">
+  <button class="active" onclick="showTab('dashboard')">Dashboard</button>
+  <button onclick="showTab('network')">Network Explorer</button>
+  <button onclick="showTab('query')">Ask a Question</button>
+  <button onclick="showTab('q1')">Q1: Energy &amp; Density</button>
+  <button onclick="showTab('q2')">Q2: Lifestyle &amp; Diversity</button>
+  <button onclick="showTab('q3')">Q3: Transit &amp; Mobility</button>
+  <button onclick="showTab('q4')">Q4: Social Equity</button>
+  <button onclick="showTab('ontology')">Ontology Schema</button>
+  <button onclick="showTab('reports')">Research Reports</button>
+</div>
+
+<!-- ==================== DASHBOARD ==================== -->
+<div class="tab-panel active" id="tab-dashboard">
+  <h2 class="section-heading">Dataset Overview</h2>
+  <div class="stat-grid" id="statGrid"></div>
+  <div class="chart-row">
+    <div class="card">
+      <h3>Key Research Findings</h3>
+      <div style="font-size:12.5px;line-height:1.7;">
+        <p><strong>Q1 &mdash; Population Density:</strong> Energy intensity is constant at 46.47 kWh/m&sup2;/yr. GFA is the sole proxy for density. The largest parcel (kml_33232) has 572,535 m&sup2; GFA with 42 buildings.</p>
+        <p><strong>Q2 &mdash; Lifestyle Patterns:</strong> Facility diversity ranges 0.6&ndash;0.9. 100% coverage for Sport, Library, ChildCare, Museum, SocialService. Only 10.1% Bar and 2.2% Garden access.</p>
+        <p><strong>Q3 &mdash; Transit &amp; Energy:</strong> Top-25% transit parcels consume 63% more energy, driven by higher GFA in TOD areas. Pedestrian infrastructure dominates: footways 40.6%.</p>
+        <p><strong>Q4 &mdash; Social Equity:</strong> 100% ChildCare/SocialService coverage across all quartiles. 90.7% of parcels share their nearest social service provider.</p>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Pipeline Methodology</h3>
+      <div class="pipeline-step"><div class="pipeline-num">0</div><div class="pipeline-info"><h4>Generate OWL + TTL</h4><p><code>generate_unified_owl.py</code> &rarr; 46MB knowledge graph</p></div></div>
+      <div class="pipeline-step"><div class="pipeline-num">1</div><div class="pipeline-info"><h4>Compute Missing Properties</h4><p><code>compute_missing_properties.py</code> &rarr; diversityIndex, units, landUse</p></div></div>
+      <div class="pipeline-step"><div class="pipeline-num">2</div><div class="pipeline-info"><h4>Merge Transit Data</h4><p><code>merge_transit.py</code> &rarr; 3,128 bus + 597 MRT stations</p></div></div>
+      <div class="pipeline-step"><div class="pipeline-num">3</div><div class="pipeline-info"><h4>Statistical Analysis</h4><p><code>run_research_v2.py</code> &rarr; 14 CSV data tables</p></div></div>
+      <div class="pipeline-step"><div class="pipeline-num">4</div><div class="pipeline-info"><h4>Visualization Data</h4><p><code>generate_viz_data.py</code> &rarr; viz_data.js (4MB compact JSON)</p></div></div>
+    </div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-container"><h4>Entity Distribution</h4><canvas id="entityChart" height="220"></canvas></div>
+    <div class="chart-container"><h4>Facility Type Coverage (%)</h4><canvas id="facilityChart" height="220"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Node Categorization Methodology</h3>
+    <div style="font-size:12px;line-height:1.7;">
+      <p>Parcels are classified into 6 categories using <strong>rule-based thresholds</strong> on 3 computed indices from the knowledge graph:</p>
+      <table class="data-table" style="margin-top:8px;">
+        <thead><tr><th>Category</th><th>Rule</th><th>Count</th><th>Rationale</th></tr></thead>
+        <tbody>
+          <tr><td><span style="color:#c0392b;font-weight:700;">&#9679;</span> Transit-Oriented Dense</td><td><code>ti &ge; 0.8 AND gfa &gt; 100K</code></td><td class="num">173</td><td>High transit + large built area &rarr; urban cores</td></tr>
+          <tr><td><span style="color:#e67e22;font-weight:700;">&#9679;</span> Transit-Oriented</td><td><code>ti &ge; 0.7</code></td><td class="num">730</td><td>Well-connected to public transport</td></tr>
+          <tr><td><span style="color:#27ae60;font-weight:700;">&#9679;</span> Lifestyle Hub</td><td><code>diversity &ge; 0.85</code></td><td class="num">230</td><td>High facility diversity (Shannon index)</td></tr>
+          <tr><td><span style="color:#8e44ad;font-weight:700;">&#9679;</span> High Density</td><td><code>gfa &gt; 200K</code></td><td class="num">72</td><td>Large GFA but lower transit access</td></tr>
+          <tr><td><span style="color:#7f8c8d;font-weight:700;">&#9679;</span> Peripheral</td><td><code>ti &lt; 0.3</code></td><td class="num">71</td><td>Low transit connectivity</td></tr>
+          <tr><td><span style="color:#2980b9;font-weight:700;">&#9679;</span> Standard Residential</td><td><em>default</em></td><td class="num">593</td><td>Moderate metrics, typical HDB estates</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:8px;color:#5d6d7e;font-style:italic;">Indices: <strong>ti</strong> = Transit Accessibility Index (0&ndash;1, based on proximity to MRT/bus); <strong>diversity</strong> = Facility Diversity Index (0&ndash;1, Shannon-based); <strong>gfa</strong> = Gross Floor Area (m&sup2;)</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== NETWORK EXPLORER ==================== -->
+<div class="tab-panel" id="tab-network">
+  <h2 class="section-heading">Knowledge Graph Network Explorer</h2>
+  <div class="network-layout">
+    <div class="network-canvas-wrap" id="networkCanvasWrap">
+      <div class="network-toolbar">
+        <button onclick="netResetView()">Reset View</button>
+        <button onclick="netToggleEdges()">Toggle Edges</button>
+        <button onclick="netToggleLabels()">Toggle Labels</button>
+      </div>
+      <canvas id="networkCanvas"></canvas>
+      <div class="network-info-badge" id="netInfoBadge"></div>
+      <!-- Node detail popup slides in from right -->
+    </div>
+    <div class="network-sidebar">
+      <div class="card">
+        <h3>Search Parcel</h3>
+        <div class="search-wrap">
+          <input type="text" class="search-input" id="searchInput" placeholder="Type parcel ID (e.g. kml_33232)...">
+          <div class="search-results" id="searchResults" style="display:none;"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Network Statistics</h3>
+        <div id="networkStats"></div>
+      </div>
+      <div class="card">
+        <h3>Node Categories</h3>
+        <div id="networkFilters"></div>
+      </div>
+      <div class="card">
+        <h3>Selected Node &mdash; Map</h3>
+        <div class="mini-map-wrap" id="miniMap"></div>
+        <div class="map-legend" id="mapLegend" style="display:none;">
+          <div class="map-legend-item"><div class="map-legend-dot" style="background:#e74c3c;"></div> Selected</div>
+          <div class="map-legend-item"><div class="map-legend-dot" style="background:#e67e22;"></div> Connected</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Edge Types in Network</h3>
+        <div class="edge-legend" id="edgeLegend"></div>
+        <div style="font-size:10px;color:var(--text-light);margin-top:6px;">Edges represent <em>shared nearest facility</em> relationships between parcels. Two parcels connected by &ldquo;Shares Nearest Bar&rdquo; both have the same bar as their closest.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== QUERY INTERFACE ==================== -->
+<div class="tab-panel" id="tab-query">
+  <h2 class="section-heading">Ask a Question &mdash; Knowledge Graph Query Engine</h2>
+  <div class="query-layout">
+    <div class="query-input-area">
+      <div class="query-box">
+        <input type="text" class="query-input" id="queryInput" placeholder="Ask about parcels, energy, transit, facilities, relationships...">
+        <button class="query-submit" id="querySubmit" title="Submit query">&#10148;</button>
+      </div>
+      <div class="query-examples">
+        <h4>Try these example questions</h4>
+        <div class="example-chips" id="exampleChips"></div>
+      </div>
+      <div class="card">
+        <h3>Query History</h3>
+        <div class="query-history" id="queryHistory">
+          <p class="hint">Your queries will appear here. Click to re-run.</p>
+        </div>
+      </div>
+      <div class="query-api-config">
+        <strong>LLM API Integration (Optional)</strong><br>
+        For advanced natural language understanding, enter your API key. Without it, the built-in rule-based GraphRAG engine is used.
+        <input type="password" id="apiKeyInput" placeholder="sk-... (Anthropic or OpenAI key)" style="margin-top:6px;">
+        <div style="margin-top:4px;color:#888;font-size:10px;">Keys are stored in browser memory only and never sent to any server except the API provider.</div>
+      </div>
+    </div>
+    <div class="query-results-area">
+      <div id="queryResultContainer">
+        <div class="card" style="text-align:center;padding:40px;">
+          <div style="font-size:32px;margin-bottom:12px;">&#128269;</div>
+          <p class="hint">Ask a question about the Singapore Urban Knowledge Graph to get started.</p>
+          <p class="hint" style="margin-top:8px;">The engine can answer questions about parcels, energy, transit, facilities, social equity, and relationships between nodes.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== Q1 ==================== -->
+<div class="tab-panel" id="tab-q1">
+  <h2 class="section-heading">Q1: Energy Consumption and Population Density Prediction</h2>
+  <div class="q-insight">
+    <strong>Key Finding:</strong> Energy intensity is constant at 46.47 kWh/m&sup2;/yr across all parcels, making GFA the sole proxy for population density.
+    <ul>
+      <li>The largest parcel (kml_33232) has 42 buildings and 572,535 m&sup2; GFA</li>
+      <li>Taller buildings (&gt;20 floors) have vertical multipliers exceeding 15x</li>
+      <li>Transit-oriented dense areas show the highest energy due to larger GFA</li>
+    </ul>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-value">46.47</div><div class="stat-label">kWh/m&sup2;/yr intensity</div></div>
+    <div class="stat-card"><div class="stat-value">1,061</div><div class="stat-label">Parcels with energy</div></div>
+    <div class="stat-card"><div class="stat-value">572,535</div><div class="stat-label">Max GFA (m&sup2;)</div></div>
+    <div class="stat-card"><div class="stat-value">6,361</div><div class="stat-label">Max est. units</div></div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-container"><h4>Fig. 1a &mdash; Average GFA by Building Count</h4><canvas id="q1_bldgGfa"></canvas></div>
+    <div class="chart-container"><h4>Fig. 1b &mdash; Average Energy by Building Count</h4><canvas id="q1_bldgEnergy"></canvas></div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-container"><h4>Fig. 1c &mdash; Building Height Distribution</h4><canvas id="q1_levelsDist"></canvas></div>
+    <div class="chart-container"><h4>Fig. 1d &mdash; Vertical Multiplier by Height</h4><canvas id="q1_vertMult"></canvas></div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-container"><h4>Fig. 1e &mdash; Energy by Parcel Category</h4><canvas id="q1_energyCat"></canvas></div>
+    <div class="chart-container"><h4>Fig. 1f &mdash; GFA Distribution (Parcels with Energy)</h4><canvas id="q1_gfaDist"></canvas></div>
+  </div>
+  <div class="card"><h3>Fig. 1g &mdash; Geographic Distribution: Energy Consumption</h3><div class="q-map-wrap" id="q1Map"></div></div>
+  <div class="card"><h3>Table 1 &mdash; Top 20 Parcels by Energy</h3><div style="overflow-x:auto;" id="q1Table"></div></div>
+</div>
+
+<!-- ==================== Q2 ==================== -->
+<div class="tab-panel" id="tab-q2">
+  <h2 class="section-heading">Q2: Lifestyle and Activity Patterns</h2>
+  <div class="q-insight">
+    <strong>Key Finding:</strong> Near-universal coverage for essential services but significant gaps in lifestyle amenities. Bar (10.1%) and Garden (2.2%) access are critically low.
+    <ul>
+      <li>Average facility diversity index: 0.739 (Shannon-based)</li>
+      <li>11 distinct facility types tracked</li>
+      <li>Higher diversity correlates with proximity to urban centres</li>
+    </ul>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-value">0.739</div><div class="stat-label">Avg Diversity Index</div></div>
+    <div class="stat-card"><div class="stat-value">11</div><div class="stat-label">Facility Types</div></div>
+    <div class="stat-card"><div class="stat-value">100%</div><div class="stat-label">Sport/Library coverage</div></div>
+    <div class="stat-card"><div class="stat-value">2.2%</div><div class="stat-label">Garden coverage</div></div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-container"><h4>Fig. 2a &mdash; Facility Diversity Distribution</h4><canvas id="q2_divDist"></canvas></div>
+    <div class="chart-container"><h4>Fig. 2b &mdash; Facility Type Coverage (%)</h4><canvas id="q2_facFreq"></canvas></div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-container"><h4>Fig. 2c &mdash; Avg Facilities by Diversity Level</h4><canvas id="q2_facCount"></canvas></div>
+    <div class="chart-container"><h4>Fig. 2d &mdash; Avg Energy by Diversity Level</h4><canvas id="q2_divEnergy"></canvas></div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-container"><h4>Fig. 2e &mdash; Diversity by Category</h4><canvas id="q2_divCat"></canvas></div>
+    <div class="chart-container"><h4>Fig. 2f &mdash; Facility Count by Category</h4><canvas id="q2_facCat"></canvas></div>
+  </div>
+  <div class="card"><h3>Fig. 2g &mdash; Geographic Distribution: Facility Diversity</h3><div class="q-map-wrap" id="q2Map"></div></div>
+  <div class="card"><h3>Table 2 &mdash; Facility Type Accessibility</h3><div id="q2Table"></div></div>
+</div>
+
+<!-- ==================== Q3 ==================== -->
+<div class="tab-panel" id="tab-q3">
+  <h2 class="section-heading">Q3: Mobility and Transit Relationship to Energy</h2>
+  <div class="q-insight">
+    <strong>Key Finding:</strong> Higher transit correlates with higher energy, driven by larger GFA in TOD areas (not causation). Pedestrian infrastructure dominates: footways 40.6%, service roads 37.5%.
+    <ul>
+      <li>Top-25% transit parcels consume 63% more energy than bottom-25%</li>
+      <li>Average circuity ratio: 2.15</li>
+      <li>3,725 transit stations serve the network</li>
+    </ul>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-value">0.653</div><div class="stat-label">Avg Transit Index</div></div>
+    <div class="stat-card"><div class="stat-value">3,725</div><div class="stat-label">Transit stations</div></div>
+    <div class="stat-card"><div class="stat-value">1,272m</div><div class="stat-label">Avg walking distance</div></div>
+    <div class="stat-card"><div class="stat-value">2.15</div><div class="stat-label">Avg circuity ratio</div></div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-container"><h4>Fig. 3a &mdash; Transit Index vs Avg GFA</h4><canvas id="q3_transitGfa"></canvas></div>
+    <div class="chart-container"><h4>Fig. 3b &mdash; Transit Index vs Avg Energy</h4><canvas id="q3_transitEnergy"></canvas></div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-container"><h4>Fig. 3c &mdash; Road Type Usage</h4><canvas id="q3_roadUsage"></canvas></div>
+    <div class="chart-container"><h4>Fig. 3d &mdash; Energy by Distance to Facilities</h4><canvas id="q3_distEnergy"></canvas></div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-container"><h4>Fig. 3e &mdash; Transit by Category</h4><canvas id="q3_transitCat"></canvas></div>
+    <div class="chart-container"><h4>Fig. 3f &mdash; High vs Low Transit Comparison</h4><canvas id="q3_transitCompare"></canvas></div>
+  </div>
+  <div class="card"><h3>Fig. 3g &mdash; Geographic Distribution: Transit Index</h3><div class="q-map-wrap" id="q3Map"></div></div>
+  <div class="card"><h3>Table 3 &mdash; Transit vs Urban Metrics</h3><div id="q3Table"></div></div>
+</div>
+
+<!-- ==================== Q4 ==================== -->
+<div class="tab-panel" id="tab-q4">
+  <h2 class="section-heading">Q4: Social Facility Equity and Community Resilience</h2>
+  <div class="q-insight">
+    <strong>Key Finding:</strong> 100% ChildCare/SocialService coverage but 90.7% of parcels share their nearest provider, creating single-point-of-failure vulnerability.
+    <ul>
+      <li>6,073 social facilities across 4 types</li>
+      <li>Equity is uniformly high across GFA quartiles</li>
+      <li>Provider concentration risk: most parcels share nearest providers</li>
+    </ul>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-value">100%</div><div class="stat-label">ChildCare coverage</div></div>
+    <div class="stat-card"><div class="stat-value">100%</div><div class="stat-label">SocialService coverage</div></div>
+    <div class="stat-card"><div class="stat-value">90.7%</div><div class="stat-label">Share nearest provider</div></div>
+    <div class="stat-card"><div class="stat-value">6,073</div><div class="stat-label">Social facilities</div></div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-container"><h4>Fig. 4a &mdash; Social Facility Counts</h4><canvas id="q4_counts"></canvas></div>
+    <div class="chart-container"><h4>Fig. 4b &mdash; Equity by GFA Quartile</h4><canvas id="q4_equity"></canvas></div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-container"><h4>Fig. 4c &mdash; Shared Provider Network</h4><canvas id="q4_sharing"></canvas></div>
+    <div class="chart-container"><h4>Fig. 4d &mdash; Facility Access by Category</h4><canvas id="q4_accessCat"></canvas></div>
+  </div>
+  <div class="card"><h3>Fig. 4e &mdash; Geographic Distribution: Facility Access</h3><div class="q-map-wrap" id="q4Map"></div></div>
+  <div class="card"><h3>Table 4 &mdash; Equity by Parcel Size Quartile</h3><div id="q4Table"></div></div>
+</div>
+
+<!-- ==================== ONTOLOGY ==================== -->
+<div class="tab-panel" id="tab-ontology">
+  <h2 class="section-heading">Ontology Schema &mdash; Regen Cities Urban Knowledge Graph</h2>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-value" id="owlClassCount">31</div><div class="stat-label">OWL Classes</div></div>
+    <div class="stat-card"><div class="stat-value" id="owlObjCount">41</div><div class="stat-label">Object Properties</div></div>
+    <div class="stat-card"><div class="stat-value" id="owlDataCount">95</div><div class="stat-label">Data Properties</div></div>
+  </div>
+  <div class="card"><h3>Class Hierarchy</h3><div class="ontology-tree" id="ontologyTree"></div></div>
+  <div class="card"><h3>Object Properties</h3><div style="overflow-x:auto;" id="objPropTable"></div></div>
+  <div class="card"><h3>Data Properties</h3><div style="overflow-x:auto;" id="dataPropTable"></div></div>
+</div>
+
+<!-- ==================== REPORTS ==================== -->
+<div class="tab-panel" id="tab-reports">
+  <h2 class="section-heading">LLM-Generated Research Reports</h2>
+  <div class="sub-tabs" id="reportSubTabs">
+    <button class="active" onclick="showReport('q1')">Q1: Energy</button>
+    <button onclick="showReport('q2')">Q2: Lifestyle</button>
+    <button onclick="showReport('q3')">Q3: Transit</button>
+    <button onclick="showReport('q4')">Q4: Equity</button>
+  </div>
+  <div class="card"><div class="report-content" id="reportContent"></div></div>
+</div>
+
+<div class="tooltip" id="tooltip" style="display:none;"></div>
+
+<!-- JavaScript modules -->
+<script src="app.js"></script>
+<script src="network.js"></script>
+<script src="query-engine.js"></script>
+
+</body>
+</html>
