@@ -7,13 +7,12 @@ Static frontend for the Singapore Urban KG explorer.
 Use repository root as publish source.
 
 - Keep `index.html` at repository root (it redirects to `kg-explorer/`).
-- Keep `kg-explorer/index.html` and `kg-explorer/viz_data.js` in the same folder.
-- If your `viz_data.js` is generated at repo root, `kg-explorer/index.html` also includes a fallback `../viz_data.js`.
+- The explorer loads data from `/kg-explorer/viz_data.js` (absolute path for GitHub project pages).
+- Ensure `viz_data.js` exists at repository root after generation.
 
 After pushing:
 
 1. Wait for GitHub Pages build to finish.
 2. Hard refresh (`Cmd+Shift+R`).
-3. In DevTools Network tab, confirm at least one of these is `200`:
-   - `kg-explorer/viz_data.js`
-   - `viz_data.js`
+3. In DevTools Network tab, confirm this is `200`:
+   - `/kg-explorer/viz_data.js`
